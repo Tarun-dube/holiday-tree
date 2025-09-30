@@ -1,0 +1,141 @@
+// This is your Prisma schema file.
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// 1. Define the data source and generator
+
+datasource db {
+  provider = "postgresql" // Using PostgreSQL, but you can use mysql, sqlite, etc.
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// 2. Define your database models
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  password      String? // For credentials provider
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+
+  // --- Your application-specific fields ---
+  bookings Booking[]
+  reviews  Review[]
+}
+
+
+//# this is for next auth
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+
+// NOTE: With Amadeus, these models are for *your* internal reference, 
+// especially for creating bookings. The primary source for searching flights/hotels will be the Amadeus API.
+model Flight {
+  id              String    @id @default(cuid())
+  flightNumber    String
+  airline         String
+  origin          String // e.g., "JFK"
+  destination     String // e.g., "LAX"
+  departureTime   DateTime
+  arrivalTime     DateTime
+  price           Float
+  seatsAvailable  Int
+  createdAt       DateTime  @default(now())
+  bookings        Booking[]
+}
+
+model Hotel {
+  id             String    @id @default(cuid())
+  name           String
+  location       String // e.g., "New York, NY"
+  pricePerNight  Float
+  roomsAvailable Int
+  rating         Float     @default(0)
+  createdAt      DateTime  @default(now())
+  bookings       Booking[]
+  reviews  Review[]
+}
+
+// Booking model connects users to flights and hotels
+model Booking {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // A booking can be for a flight OR a hotel
+  flightId    String?
+  flight      Flight?  @relation(fields: [flightId], references: [id])
+  
+  hotelId     String?
+  hotel       Hotel?   @relation(fields: [hotelId], references: [id])
+
+  // NEW: Store the unique booking reference from the Amadeus API
+  amadeusBookingId String?  @unique
+
+  bookingDate DateTime @default(now())
+  totalPrice  Float
+  status      String   @default("CONFIRMED") // e.g., CONFIRMED, CANCELLED, PENDING
+  
+  passengerDetails Json? 
+
+  @@index([userId])
+  @@index([flightId])
+  @@index([hotelId])
+}
+
+//for reviews
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hotelId   String?
+  hotel     Hotel?   @relation(fields: [hotelId], references: [id])
+
+  @@index([userId])
+  @@index([hotelId])
+}
