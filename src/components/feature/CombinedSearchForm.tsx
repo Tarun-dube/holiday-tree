@@ -1,171 +1,242 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { format } from 'date-fns';
-import { Button } from '@/components/ui/Button';
-import { Label } from '@/components/ui/Label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { LocationSearch } from '@/components/feature/LocationSearch';
-import { Plane, Hotel, Users, Minus, Plus, Calendar as CalendarIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { format } from "date-fns";
+import { Button } from "@/components/ui/Button";
+import { Label } from "@/components/ui/Label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { LocationSearch } from "@/components/feature/LocationSearch";
+import {
+  Plane,
+  Hotel,
+  Users,
+  Minus,
+  Plus,
+  Calendar as CalendarIcon,
+  Search,
+  Loader2,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
-export default function CombinedSearchForm() {
+type SearchType = "flights" | "hotels";
+
+export default function BookingSearchForm() {
   const router = useRouter();
-  
-  // State for component control
-  const [searchType, setSearchType] = useState<'flights' | 'hotels'>('flights');
 
-  // State for all form inputs
-  const [origin, setOrigin] = useState('');
-  const [destination, setDestination] = useState('');
+  const [searchType, setSearchType] = useState<SearchType>("flights");
+  const [originLocation, setOriginLocation] = useState("");
+  const [destinationLocation, setDestinationLocation] = useState("");
   const [departureDate, setDepartureDate] = useState<Date | undefined>();
   const [returnDate, setReturnDate] = useState<Date | undefined>();
-  const [adults, setAdults] = useState(1);
-  const [children, setChildren] = useState(0);
-  const [rooms, setRooms] = useState(1);
+  const [adultCount, setAdultCount] = useState(1);
+  const [childrenCount, setChildrenCount] = useState(0);
+  const [roomCount, setRoomCount] = useState(1);
+  const [isDepartureCalendarOpen, setIsDepartureCalendarOpen] = useState(false);
+  const [isReturnCalendarOpen, setIsReturnCalendarOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (searchType === 'flights') {
-      // Return date is now required for flights
-      if (!origin || !destination || !departureDate || !returnDate) {
-        alert('Please fill out all fields for a round-trip flight search.');
-        return;
+  const validateForm = (): string | null => {
+    if (searchType === "flights") {
+      if (!originLocation || !destinationLocation || !departureDate || !returnDate) {
+        return "Please fill out all fields for a round-trip flight search.";
       }
-      const params = new URLSearchParams({
-        originLocationCode: origin,
-        destinationLocationCode: destination,
-        departureDate: format(departureDate, 'yyyy-MM-dd'),
-        returnDate: format(returnDate, 'yyyy-MM-dd'), // Always include return date
-        adults: adults.toString(),
-      });
-      router.push(`/flights?${params.toString()}`);
-
-    } else if (searchType === 'hotels') {
-      if (!destination || !departureDate || !returnDate) {
-        alert('Please fill out all hotel search fields.');
-        return;
+      if (originLocation === destinationLocation) return "Origin and destination must be different";
+    } else { // hotels
+      if (!destinationLocation || !departureDate || !returnDate) {
+        return "Please fill out all hotel search fields.";
       }
-      const params = new URLSearchParams({
-        cityCode: destination,
-        checkInDate: format(departureDate, 'yyyy-MM-dd'),
-        checkOutDate: format(returnDate, 'yyyy-MM-dd'),
-        adults: adults.toString(),
-        roomQuantity: rooms.toString(),
-      });
-      router.push(`/hotels?${params.toString()}`);
     }
+    if (returnDate && departureDate && returnDate <= departureDate) {
+      return searchType === "flights"
+        ? "Return date must be after departure date"
+        : "Check-out date must be after check-in date";
+    }
+    return null;
   };
 
-  const guestSummary = `${adults} Adult${adults > 1 ? 's' : ''}${children > 0 ? `, ${children} Child${children > 1 ? 'ren' : ''}` : ''}${searchType === 'hotels' ? `, ${rooms} Room${rooms > 1 ? 's' : ''}` : ''}`;
+  const handleSearchSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const validationError = validateForm();
+    if (validationError) {
+      alert(validationError);
+      return;
+    }
+
+    setIsSubmitting(true);
+    const params = new URLSearchParams();
+
+    if (searchType === "flights") {
+      params.set("originLocationCode", originLocation);
+      params.set("destinationLocationCode", destinationLocation);
+      params.set("departureDate", format(departureDate!, "yyyy-MM-dd"));
+      params.set("returnDate", format(returnDate!, "yyyy-MM-dd"));
+      params.set("adults", adultCount.toString());
+      router.push(`/flights?${params.toString()}`);
+    } else {
+      params.set("cityCode", destinationLocation);
+      params.set("checkInDate", format(departureDate!, "yyyy-MM-dd"));
+      params.set("checkOutDate", format(returnDate!, "yyyy-MM-dd"));
+      params.set("adults", adultCount.toString());
+      params.set("roomQuantity", roomCount.toString());
+      router.push(`/hotels?${params.toString()}`);
+    }
+    // A small delay to show loading state, can be removed
+    setTimeout(() => setIsSubmitting(false), 1000);
+  };
+
+  const generateGuestSummary = (): string => {
+    const parts = [`${adultCount} Adult${adultCount > 1 ? "s" : ""}`];
+    if (childrenCount > 0) parts.push(`${childrenCount} Child${childrenCount > 1 ? "ren" : ""}`);
+    if (searchType === "hotels") parts.push(`${roomCount} Room${roomCount > 1 ? "s" : ""}`);
+    return parts.join(", ");
+  };
 
   return (
     <div className="bg-card rounded-xl shadow-xl p-6 border">
-      {/* Tabs */}
-      <div className="mb-4">
-        <Button variant={searchType === 'flights' ? 'secondary' : 'ghost'} onClick={() => setSearchType('flights')}>
+      <div className="flex mb-6 p-1 bg-muted rounded-lg">
+        <Button
+          type="button"
+          variant={searchType === "flights" ? "default" : "ghost"}
+          onClick={() => setSearchType("flights")}
+          className="flex-1"
+        >
           <Plane className="mr-2 h-4 w-4" /> Flights
         </Button>
-        <Button variant={searchType === 'hotels' ? 'secondary' : 'ghost'} onClick={() => setSearchType('hotels')}>
+        <Button
+          type="button"
+          variant={searchType === "hotels" ? "default" : "ghost"}
+          onClick={() => setSearchType("hotels")}
+          className="flex-1"
+        >
           <Hotel className="mr-2 h-4 w-4" /> Hotels
         </Button>
       </div>
 
-      <form onSubmit={handleSearch} className="space-y-4">
+      <form onSubmit={handleSearchSubmit} className="space-y-6">
         {/* Location Inputs */}
-        <div className={cn("grid gap-4", searchType === 'flights' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1')}>
-          {searchType === 'flights' && (
-            <div>
+        <div className={cn("grid gap-4", searchType === "flights" ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1")}>
+          {searchType === "flights" && (
+            <div className="space-y-2">
               <Label>From</Label>
-              <LocationSearch onLocationSelect={setOrigin} />
+              <LocationSearch onLocationSelect={setOriginLocation} placeholder="Select origin..." />
             </div>
           )}
-          <div>
-            <Label>{searchType === 'flights' ? 'To' : 'Destination'}</Label>
-            <LocationSearch onLocationSelect={setDestination} />
-          </div>
-        </div>
-        
-        {/* Date Inputs with Calendar Popover */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label>{searchType === 'flights' ? 'Departure Date' : 'Check-in Date'}</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !departureDate && "text-muted-foreground")}>
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {departureDate ? format(departureDate, "PPP") : <span>Pick a date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={departureDate} onSelect={setDepartureDate} initialFocus /></PopoverContent>
-            </Popover>
-          </div>
-          <div>
-            <Label>{searchType === 'flights' ? 'Return Date' : 'Check-out Date'}</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                {/* The 'disabled' attribute has been removed */}
-                <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !returnDate && "text-muted-foreground")}>
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {returnDate ? format(returnDate, "PPP") : <span>Pick a date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={returnDate} onSelect={setReturnDate} initialFocus /></PopoverContent>
-            </Popover>
+          <div className="space-y-2">
+            <Label>{searchType === "flights" ? "To" : "Destination"}</Label>
+            <LocationSearch onLocationSelect={setDestinationLocation} placeholder="Select destination..." />
           </div>
         </div>
 
-        {/* Guest Selector and Submit Button */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end pt-2">
-             <div>
-                <Label>Travelers & Rooms</Label>
-                <Popover>
-                  <PopoverTrigger asChild><Button variant="outline" className="w-full justify-start text-left font-normal"><Users className="mr-2 h-4 w-4" />{guestSummary}</Button></PopoverTrigger>
-                  <PopoverContent className="w-72">
-                    <div className="grid gap-4">
-                      <div className="space-y-2">
-                        <h4 className="font-medium leading-none">Guests</h4>
-                        <p className="text-sm text-muted-foreground">Select number of travelers.</p>
-                      </div>
-                      <div className="grid gap-2">
-                        {/* Adults */}
-                        <div className="flex items-center justify-between">
-                          <Label>Adults</Label>
-                          <div className="flex items-center gap-2">
-                            <Button variant="outline" size="sm" onClick={() => setAdults(Math.max(1, adults - 1))}><Minus className="h-4 w-4" /></Button>
-                            <span>{adults}</span>
-                            <Button variant="outline" size="sm" onClick={() => setAdults(adults + 1)}><Plus className="h-4 w-4" /></Button>
-                          </div>
-                        </div>
-                        {/* Children */}
-                        <div className="flex items-center justify-between">
-                          <Label>Children</Label>
-                          <div className="flex items-center gap-2">
-                            <Button variant="outline" size="sm" onClick={() => setChildren(Math.max(0, children - 1))}><Minus className="h-4 w-4" /></Button>
-                            <span>{children}</span>
-                            <Button variant="outline" size="sm" onClick={() => setChildren(children + 1)}><Plus className="h-4 w-4" /></Button>
-                          </div>
-                        </div>
-                        {/* Rooms (Hotels only) */}
-                        {searchType === 'hotels' && (
-                          <div className="flex items-center justify-between">
-                            <Label>Rooms</Label>
-                            <div className="flex items-center gap-2">
-                              <Button variant="outline" size="sm" onClick={() => setRooms(Math.max(1, rooms - 1))}><Minus className="h-4 w-4" /></Button>
-                              <span>{rooms}</span>
-                              <Button variant="outline" size="sm" onClick={() => setRooms(rooms + 1)}><Plus className="h-4 w-4" /></Button>
-                            </div>
-                          </div>
-                        )}
+        {/* --- DATE SELECTION (RESTORED) --- */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>{searchType === 'flights' ? 'Departure Date' : 'Check-in Date'}</Label>
+            <Popover open={isDepartureCalendarOpen} onOpenChange={setIsDepartureCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !departureDate && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {departureDate ? format(departureDate, "PPP") : "Select date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={departureDate}
+                  onSelect={(date) => { setDepartureDate(date); setIsDepartureCalendarOpen(false); }}
+                  disabled={(date) => {
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      return date < today;
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="space-y-2">
+            <Label>{searchType === 'flights' ? 'Return Date' : 'Check-out Date'}</Label>
+            <Popover open={isReturnCalendarOpen} onOpenChange={setIsReturnCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !returnDate && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {returnDate ? format(returnDate, "PPP") : "Select date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={returnDate}
+                  onSelect={(date) => { setReturnDate(date); setIsReturnCalendarOpen(false); }}
+                  disabled={(date) => {
+                      const startOfDay = new Date();
+                      startOfDay.setHours(0, 0, 0, 0);
+                      return date < (departureDate || startOfDay);
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
+        
+        {/* --- GUEST SELECTION AND SUBMIT (RESTORED) --- */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+          <div className="space-y-2">
+            <Label>Travelers & Rooms</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full justify-start text-left font-normal">
+                  <Users className="mr-2 h-4 w-4" />
+                  {generateGuestSummary()}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <h4 className="font-medium leading-none">Travelers</h4>
+                    <p className="text-sm text-muted-foreground">Select number of travelers and rooms.</p>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label>Adults</Label>
+                      <div className="flex items-center gap-2">
+                        <Button type="button" variant="outline" size="sm" onClick={() => setAdultCount(Math.max(1, adultCount - 1))} disabled={adultCount <= 1}><Minus className="h-4 w-4" /></Button>
+                        <span className="w-8 text-center">{adultCount}</span>
+                        <Button type="button" variant="outline" size="sm" onClick={() => setAdultCount(adultCount + 1)}><Plus className="h-4 w-4" /></Button>
                       </div>
                     </div>
-                  </PopoverContent>
-                </Popover>
-             </div>
-             <Button type="submit" className="w-full h-10">Search</Button>
+                    <div className="flex items-center justify-between">
+                      <Label>Children</Label>
+                      <div className="flex items-center gap-2">
+                        <Button type="button" variant="outline" size="sm" onClick={() => setChildrenCount(Math.max(0, childrenCount - 1))} disabled={childrenCount <= 0}><Minus className="h-4 w-4" /></Button>
+                        <span className="w-8 text-center">{childrenCount}</span>
+                        <Button type="button" variant="outline" size="sm" onClick={() => setChildrenCount(childrenCount + 1)}><Plus className="h-4 w-4" /></Button>
+                      </div>
+                    </div>
+                    {searchType === 'hotels' && (
+                      <div className="flex items-center justify-between">
+                        <Label>Rooms</Label>
+                        <div className="flex items-center gap-2">
+                          <Button type="button" variant="outline" size="sm" onClick={() => setRoomCount(Math.max(1, roomCount - 1))} disabled={roomCount <= 1}><Minus className="h-4 w-4" /></Button>
+                          <span className="w-8 text-center">{roomCount}</span>
+                          <Button type="button" variant="outline" size="sm" onClick={() => setRoomCount(roomCount + 1)}><Plus className="h-4 w-4" /></Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+          <Button type="submit" className="w-full h-11" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Searching...</>
+            ) : (
+              <><Search className="mr-2 h-4 w-4" /> Search {searchType === 'flights' ? 'Flights' : 'Hotels'}</>
+            )}
+          </Button>
         </div>
       </form>
     </div>

@@ -1,47 +1,48 @@
-import { NextRequest, NextResponse } from 'next/server';
-import Amadeus from 'amadeus';
-
-// This is the same Amadeus client initialization as in your hotel search route.
-// It reuses the same credentials from your .env.local file.
-const amadeus = new Amadeus({
-  clientId: process.env.AMADEUS_CLIENT_ID as string,
-  clientSecret: process.env.AMADEUS_CLIENT_SECRET as string,
-});
+import { NextRequest, NextResponse } from "next/server";
+import { amadeus } from "@/lib/amadeus";
 
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const originLocationCode = searchParams.get('originLocationCode');
-  const destinationLocationCode = searchParams.get('destinationLocationCode');
-  const departureDate = searchParams.get('departureDate');
-  const adults = searchParams.get('adults') || '1'; // Default to 1 adult
-
-  // --- Input Validation ---
-  if (!originLocationCode || !destinationLocationCode || !departureDate) {
-    return NextResponse.json(
-      { error: 'Missing required parameters: originLocationCode, destinationLocationCode, and departureDate are required.' },
-      { status: 400 } // Bad Request
-    );
-  }
-
   try {
-    // --- Call the Amadeus API for Flight Offers ---
-    const response = await amadeus.shopping.flightOffersSearch.get({
-      originLocationCode: originLocationCode,
-      destinationLocationCode: destinationLocationCode,
-      departureDate: departureDate,
-      adults: adults,
-      max: 15 // You can limit the number of results
+    const { searchParams } = new URL(request.url);
+    const keyword = searchParams.get("keyword");
+
+    if (!keyword || keyword.trim().length < 2) {
+      return NextResponse.json({
+        data: [],
+        message: "Keyword must be at least 2 characters long",
+      });
+    }
+
+    const response = await amadeus.referenceData.locations.get({
+      keyword: keyword.trim(),
+      subType: "CITY,AIRPORT",
+      "page[limit]": 20,
     });
 
-    // --- Return the successful response ---
-    return NextResponse.json(response.data);
+    const locationData = response.data.map((location: any) => ({
+      name: `${
+        location.name
+      }${location.address?.cityName && location.address.cityName !== location.name ? `, ${location.address.cityName}` : ""}`,
+      iataCode: location.iataCode,
+      city: location.address?.cityName || location.name,
+      country: location.address?.countryCode || "",
+      type: location.subType,
+    }));
 
+    return NextResponse.json({
+      data: locationData,
+      count: locationData.length,
+    });
   } catch (error: any) {
-    // --- Error Handling ---
-    console.error('Amadeus API Error:', error.response?.data || error.message);
+    console.error("Amadeus API Error:", error);
+
     return NextResponse.json(
-      { error: 'Failed to fetch flight data from the provider.' },
-      { status: 500 } // Internal Server Error
+      {
+        error: "Failed to fetch locations",
+        message: error.description || error.message || "Unknown error occurred",
+        code: error.code || "UNKNOWN_ERROR",
+      },
+      { status: error.response?.statusCode || 500 }
     );
   }
 }

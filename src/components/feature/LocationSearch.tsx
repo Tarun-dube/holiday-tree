@@ -1,115 +1,117 @@
 'use client';
 
 import * as React from 'react';
-import { Check, ChevronsUpDown, Loader2 } from 'lucide-react'; // Import Loader2
+import { ChevronsUpDown, Loader2, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
+import { Input } from '@/components/ui/Input';
+import { 
+  Popover, 
+  PopoverContent, 
+  PopoverTrigger 
 } from '@/components/ui/popover';
 
-interface Location {
+interface LocationData {
   name: string;
   iataCode: string;
 }
 
 interface LocationSearchProps {
   onLocationSelect: (iataCode: string) => void;
+  placeholder?: string;
 }
 
-export function LocationSearch({ onLocationSelect }: LocationSearchProps) {
-  const [open, setOpen] = React.useState(false);
-  const [inputValue, setInputValue] = React.useState('');
-  const [locations, setLocations] = React.useState<Location[]>([]);
-  const [selectedValue, setSelectedValue] = React.useState<Location | null>(null);
-  const [isLoading, setIsLoading] = React.useState(false); // New loading state
+export function LocationSearch({
+  onLocationSelect,
+  placeholder = "Search cities or airports...",
+}: LocationSearchProps) {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const [locations, setLocations] = React.useState<LocationData[]>([]);
+  const [selectedValue, setSelectedValue] = React.useState<LocationData | null>(null);
+  const [isLoading, setIsLoading] = React.useState(false);
 
   React.useEffect(() => {
-    if (inputValue.length < 2) {
+    if (query.length < 2) {
       setLocations([]);
       return;
     }
-
-    setIsLoading(true); // Start loading
-    const timer = setTimeout(() => {
-      fetch(`/api/search-locations?keyword=${inputValue}`)
-        .then((res) => res.json())
-        .then((data) => {
-          setLocations(data.error ? [] : data);
-        })
-        .finally(() => {
-          setIsLoading(false); // Stop loading
-        });
+    
+    setIsLoading(true);
+    const searchTimer = setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/search-locations?keyword=${encodeURIComponent(query.trim())}`);
+        if (!response.ok) throw new Error('Network response was not ok');
+        const responseData = await response.json();
+        setLocations(responseData || []);
+      } catch (fetchError) {
+        console.error("Location search error:", fetchError);
+        setLocations([]);
+      } finally {
+        setIsLoading(false);
+      }
     }, 500);
+    
+    return () => clearTimeout(searchTimer);
+  }, [query]);
 
-    return () => clearTimeout(timer);
-  }, [inputValue]);
+  const handleSelect = (location: LocationData) => {
+    setSelectedValue(location);
+    onLocationSelect(location.iataCode);
+    setIsOpen(false);
+  };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
           role="combobox"
-          aria-expanded={open}
           className="w-full justify-between text-left font-normal"
         >
-          {selectedValue ? selectedValue.name : 'Select a destination...'}
+          <div className="flex items-center truncate">
+            <MapPin className="mr-2 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+            <span className={cn("truncate", !selectedValue && "text-muted-foreground")}>
+              {selectedValue ? selectedValue.name : placeholder}
+            </span>
+          </div>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
+      
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-        <Command>
-          <CommandInput
-            placeholder="Search for a city..."
-            value={inputValue}
-            onValueChange={setInputValue}
-          />
-          <CommandList>
-            {isLoading ? (
-              // Display spinner while loading
-              <div className="flex justify-center items-center p-4">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : (
-              <>
-                <CommandEmpty>No location found.</CommandEmpty>
-                <CommandGroup>
-                  {locations.map((location) => (
-                    <CommandItem
-                      key={location.iataCode}
-                      onSelect={() => {
-                        setSelectedValue(location);
-                        onLocationSelect(location.iataCode);
-                        setOpen(false);
-                      }}
-                    >
-                      <Check
-                        className={cn(
-                          'mr-2 h-4 w-4',
-                          selectedValue?.iataCode === location.iataCode
-                            ? 'opacity-100'
-                            : 'opacity-0'
-                        )}
-                      />
-                      {location.name}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </>
+        <div className="flex items-center border-b px-3">
+            <MapPin className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+            <Input
+                placeholder="Type to search..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
+        </div>
+
+        <div className="max-h-[300px] overflow-y-auto">
+            {isLoading && (
+              <div className="p-4 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
             )}
-          </CommandList>
-        </Command>
+            {!isLoading && locations.length === 0 && query.length >= 2 && (
+              <p className="p-4 text-center text-sm text-muted-foreground">No results found.</p>
+            )}
+            {!isLoading && locations.length > 0 && (
+              <div className="p-1">
+                {locations.map((location) => (
+                  <Button
+                    variant="ghost"
+                    key={location.iataCode}
+                    onClick={() => handleSelect(location)}
+                    className="w-full justify-start font-normal"
+                  >
+                    <span className="truncate">{location.name}</span>
+                  </Button>
+                ))}
+              </div>
+            )}
+        </div>
       </PopoverContent>
     </Popover>
   );
