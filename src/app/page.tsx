@@ -1,4 +1,4 @@
-import CombinedSearchForm from '@/components/feature/CombinedSearchForm';
+import CombinedSearchForm from '@/components/feature/BookingSearchForm';
 import { Award, Clock, Globe } from 'lucide-react'; // Import icons
 
 export default function HomePage() {

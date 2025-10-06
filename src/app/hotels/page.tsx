@@ -3,7 +3,7 @@
 import { useSearchParams } from 'next/navigation';
 import { useState, useEffect, Suspense } from 'react';
 import HotelCard from '@/components/feature/HotelCard';
-import CombinedSearchForm from '@/components/feature/CombinedSearchForm';
+import CombinedSearchForm from '@/components/feature/BookingSearchForm';
 import { SkeletonLoader } from '@/components/ui/SkeletonLoader';
 import { Button } from '@/components/ui/Button';
 import {

@@ -3,34 +3,33 @@
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { Button } from '@/components/ui/Button';
-import { Plane } from 'lucide-react'; // An icon for the brand
+import { Plane } from 'lucide-react';
 
 export default function Navbar() {
   const { data: session, status } = useSession();
 
+  // Get first initial from user name or email
+  const userInitial =
+    session?.user?.name?.[0]?.toUpperCase() ||
+    session?.user?.email?.[0]?.toUpperCase() ||
+    '?';
+
   return (
-    // 'sticky top-0 z-50' makes the navbar stick to the top
-    // 'bg-background/80 backdrop-blur-sm' creates the cool, semi-transparent glass effect
-    // 'border-b' adds a clean line separating the nav from the content below
     <nav className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-sm">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center py-3">
           {/* Brand/Logo */}
-          <Link href="/" className="flex items-center gap-2 text-2xl font-bold text-primary transition-transform hover:scale-105">
+          <Link
+            href="/"
+            className="flex items-center gap-2 text-2xl font-bold text-primary transition-transform hover:scale-105"
+          >
             <Plane />
             Holiday
           </Link>
 
-          {/* Navigation Links */}
+          {/* Navigation / Auth */}
           <div className="flex items-center space-x-4">
-            <Link href="/flights" className="font-medium text-muted-foreground transition-colors hover:text-primary">
-              Flights
-            </Link>
-            <Link href="/hotels" className="font-medium text-muted-foreground transition-colors hover:text-primary">
-              Hotels
-            </Link>
-            
-            {/* Loading State Skeleton */}
+            {/* Loading State */}
             {status === 'loading' && (
               <div className="w-24 h-10 bg-muted rounded-md animate-pulse"></div>
             )}
@@ -50,13 +49,18 @@ export default function Navbar() {
             {/* Authenticated State */}
             {status === 'authenticated' && (
               <>
-                <Link href="/profile/my-bookings" className="font-medium text-muted-foreground transition-colors hover:text-primary">
-                  My Bookings
+                {/* Profile Circle with Initial */}
+                <Link
+                  href="/profile"
+                  className="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-primary-foreground font-bold hover:opacity-90 transition"
+                >
+                  {userInitial}
                 </Link>
-                <span className="text-sm text-foreground">
-                  Hi, {session.user?.name?.split(' ')[0]}
-                </span>
-                <Button variant="outline" onClick={() => signOut({ callbackUrl: '/' })}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => signOut({ callbackUrl: '/' })}
+                >
                   Sign Out
                 </Button>
               </>

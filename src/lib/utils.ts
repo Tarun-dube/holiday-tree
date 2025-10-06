@@ -21,7 +21,7 @@ export function formatDate(date: string | number | Date, formatString = 'LLL dd,
  * Formats a number as a currency string.
  * Example Usage: formatCurrency(129.5) -> "$129.50"
  */
-export function formatCurrency(amount: number, currency = 'USD') {
+export function formatCurrency(amount: number, currency = 'INR') {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: currency,

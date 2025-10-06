@@ -39,8 +39,8 @@ export default function BookingSearchForm() {
 
   const validateForm = (): string | null => {
     if (searchType === "flights") {
-      if (!originLocation || !destinationLocation || !departureDate || !returnDate) {
-        return "Please fill out all fields for a round-trip flight search.";
+      if (!originLocation || !destinationLocation || !departureDate) {
+        return "Please fill out origin, destination, and departure date for a flight search.";
       }
       if (originLocation === destinationLocation) return "Origin and destination must be different";
     } else { // hotels
@@ -71,7 +71,9 @@ export default function BookingSearchForm() {
       params.set("originLocationCode", originLocation);
       params.set("destinationLocationCode", destinationLocation);
       params.set("departureDate", format(departureDate!, "yyyy-MM-dd"));
-      params.set("returnDate", format(returnDate!, "yyyy-MM-dd"));
+      if (returnDate) {
+        params.set("returnDate", format(returnDate, "yyyy-MM-dd"));
+      }
       params.set("adults", adultCount.toString());
       router.push(`/flights?${params.toString()}`);
     } else {
@@ -82,8 +84,6 @@ export default function BookingSearchForm() {
       params.set("roomQuantity", roomCount.toString());
       router.push(`/hotels?${params.toString()}`);
     }
-    // A small delay to show loading state, can be removed
-    setTimeout(() => setIsSubmitting(false), 1000);
   };
 
   const generateGuestSummary = (): string => {
@@ -115,7 +115,6 @@ export default function BookingSearchForm() {
       </div>
 
       <form onSubmit={handleSearchSubmit} className="space-y-6">
-        {/* Location Inputs */}
         <div className={cn("grid gap-4", searchType === "flights" ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1")}>
           {searchType === "flights" && (
             <div className="space-y-2">
@@ -129,7 +128,6 @@ export default function BookingSearchForm() {
           </div>
         </div>
 
-        {/* --- DATE SELECTION (RESTORED) --- */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>{searchType === 'flights' ? 'Departure Date' : 'Check-in Date'}</Label>
@@ -145,18 +143,14 @@ export default function BookingSearchForm() {
                   mode="single"
                   selected={departureDate}
                   onSelect={(date) => { setDepartureDate(date); setIsDepartureCalendarOpen(false); }}
-                  disabled={(date) => {
-                      const today = new Date();
-                      today.setHours(0, 0, 0, 0);
-                      return date < today;
-                  }}
+                  disabled={(date) => date < new Date(new Date().setDate(new Date().getDate() - 1))}
                   initialFocus
                 />
               </PopoverContent>
             </Popover>
           </div>
           <div className="space-y-2">
-            <Label>{searchType === 'flights' ? 'Return Date' : 'Check-out Date'}</Label>
+            <Label>{searchType === 'flights' ? 'Return Date (Optional)' : 'Check-out Date'}</Label>
             <Popover open={isReturnCalendarOpen} onOpenChange={setIsReturnCalendarOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !returnDate && "text-muted-foreground")}>
@@ -169,11 +163,7 @@ export default function BookingSearchForm() {
                   mode="single"
                   selected={returnDate}
                   onSelect={(date) => { setReturnDate(date); setIsReturnCalendarOpen(false); }}
-                  disabled={(date) => {
-                      const startOfDay = new Date();
-                      startOfDay.setHours(0, 0, 0, 0);
-                      return date < (departureDate || startOfDay);
-                  }}
+                  disabled={(date) => date < (departureDate || new Date(new Date().setDate(new Date().getDate() - 1)))}
                   initialFocus
                 />
               </PopoverContent>
@@ -181,7 +171,6 @@ export default function BookingSearchForm() {
           </div>
         </div>
         
-        {/* --- GUEST SELECTION AND SUBMIT (RESTORED) --- */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
           <div className="space-y-2">
             <Label>Travelers & Rooms</Label>
