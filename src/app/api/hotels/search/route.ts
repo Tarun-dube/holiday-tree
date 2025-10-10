@@ -1,53 +1,59 @@
+// /api/hotels/search/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import Amadeus from 'amadeus';
 
-// Initialize the Amadeus client with your API credentials from environment variables
-// This is done outside the handler to be reused across requests
 const amadeus = new Amadeus({
   clientId: process.env.AMADEUS_CLIENT_ID as string,
   clientSecret: process.env.AMADEUS_CLIENT_SECRET as string,
 });
 
 export async function GET(request: NextRequest) {
-  // Extract search parameters from the request URL
   const searchParams = request.nextUrl.searchParams;
   const cityCode = searchParams.get('cityCode');
   const checkInDate = searchParams.get('checkInDate');
   const checkOutDate = searchParams.get('checkOutDate');
-  const adults = searchParams.get('adults') || '1'; // Default to 1 adult if not provided
+  const adults = searchParams.get('adults') || '1';
 
-  // --- Input Validation ---
-  if (!cityCode) {
+  if (!cityCode || !checkInDate || !checkOutDate) {
     return NextResponse.json(
-      { error: 'Missing required parameter: cityCode' },
-      { status: 400 } // Bad Request
+      { error: 'Missing required parameters: cityCode, checkInDate, or checkOutDate' },
+      { status: 400 }
     );
   }
 
   try {
-    // --- Call the Amadeus API ---
-    // The 'get' method of hotelOffers is used to search for hotel deals
-    const response = await amadeus.shopping.hotelOffers.get({
+    // Step 1: Get the list of hotel IDs in the specified city.
+    const hotelsByCityResponse = await amadeus.referenceData.locations.hotels.byCity.get({
       cityCode: cityCode,
-      checkInDate: checkInDate,
-      checkOutDate: checkOutDate,
-      adults: adults,
-      // You can add more parameters here like 'ratings', 'amenities', etc.
     });
+    
+    // Extract just the hotel IDs from the response
+    const hotelIds = hotelsByCityResponse.data.map((hotel: any) => hotel.hotelId);
 
-    // --- Return the successful response ---
-    // The actual hotel data is in the 'data' property of the response
-    return NextResponse.json(response.data);
+    // If no hotels are found in the city, return an empty array.
+    if (!hotelIds || hotelIds.length === 0) {
+        return NextResponse.json([]);
+    }
+
+    // Step 2: Use the hotel IDs to search for available offers.
+    // This is the key change! We are now using the shopping endpoint.
+    const offersResponse = await amadeus.shopping.hotelOffersSearch.get({
+        hotelIds: hotelIds,
+        checkInDate: checkInDate,
+        checkOutDate: checkOutDate,
+        adults: adults,
+        currency: 'INR', // It's good practice to specify a currency
+        paymentPolicy: 'NONE' // Important for test environment
+    });
+    
+    // The offersResponse.data contains a list of hotels that have available rooms.
+    return NextResponse.json(offersResponse.data);
 
   } catch (error: any) {
-    // --- Error Handling ---
-    // Log the detailed error on the server for debugging
     console.error('Amadeus API Error:', error.response?.data || error.message);
-
-    // Return a generic error message to the client for security
     return NextResponse.json(
-      { error: 'Failed to fetch hotel data from the provider.' },
-      { status: 500 } // Internal Server Error
+      { error: 'Failed to fetch hotel offers from the provider.' },
+      { status: 500 }
     );
   }
 }

@@ -14,9 +14,20 @@ export function cn(...inputs: ClassValue[]) {
  * Example Usage: formatDate('2025-09-29T10:00:00Z') -> "Sep 29, 2025"
  */
 export function formatDate(date: string | number | Date, formatString = 'LLL dd, y') {
-  return format(new Date(date), formatString);
-}
+  if (!date) return 'N/A'; // Guard for null/undefined
 
+  try {
+    const parsedDate =
+      typeof date === 'string' && date.includes('T')
+        ? new Date(date)
+        : new Date(date);
+
+    if (isNaN(parsedDate.getTime())) return 'N/A';
+    return format(parsedDate, formatString);
+  } catch (err) {
+    return 'N/A';
+  }
+}
 /**
  * Formats a number as a currency string.
  * Example Usage: formatCurrency(129.5) -> "$129.50"

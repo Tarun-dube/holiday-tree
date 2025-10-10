@@ -1,9 +1,8 @@
 import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
-import { Star } from 'lucide-react';
+import { Star, MapPin, Hotel } from 'lucide-react';
 import Link from 'next/link';
 
-// The StarRating component is now themed
 const StarRating = ({ rating }: { rating: number }) => {
   return (
     <div className="flex items-center">
@@ -11,7 +10,6 @@ const StarRating = ({ rating }: { rating: number }) => {
         <Star
           key={i}
           size={16}
-          // Filled stars use the theme's primary color; empty stars are a muted gray
           className={i < rating ? 'text-primary fill-primary' : 'text-muted/50'}
         />
       ))}
@@ -19,36 +17,68 @@ const StarRating = ({ rating }: { rating: number }) => {
   );
 };
 
-// IMPORTANT: The structure of the 'hotel' and 'offer' objects depends on the Amadeus API response.
-// Use console.log() to inspect the actual data structure and adjust the accessors below as needed.
-export default function HotelCard({ hotel, offer }: { hotel: any; offer: any }) {
-  // Simplified data extraction - ADJUST AS NEEDED!
-  const price = offer.price.total;
+// Updated component props to include searchParams
+export default function HotelCard({ 
+  hotel, 
+  offer, 
+  searchParams 
+}: { 
+  hotel: any; 
+  offer: any; 
+  searchParams?: {
+    checkInDate: string | null;
+    checkOutDate: string | null;
+    adults: string | null;
+  }; 
+}) {
   const rating = hotel.rating ? parseInt(hotel.rating) : 0;
   const hotelId = hotel.hotelId;
+  const hotelName = hotel.name || 'Hotel Name Not Available';
+  const cityName = hotel.address?.cityName || 'Location Not Available';
+  const countryName = hotel.address?.countryName;
+
+  // Build the detail page URL with search parameters
+  const detailsUrl = `/hotels/${hotelId}${
+    searchParams 
+      ? `?checkInDate=${searchParams.checkInDate}&checkOutDate=${searchParams.checkOutDate}&adults=${searchParams.adults}` 
+      : ''
+  }`;
 
   return (
-    // Use the base card styles with hover and animation effects
     <div className="border bg-card text-card-foreground rounded-lg overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 animate-fade-in-up flex flex-col">
-      {/* Image placeholder now uses themed colors */}
       <div className="bg-muted h-40 flex items-center justify-center text-muted-foreground">
-        Image Placeholder
+        <div className="text-center">
+          <Hotel className="h-8 w-8 mx-auto mb-2 text-primary" />
+          <span className="text-sm">Hotel Image</span>
+        </div>
       </div>
+      
       <div className="p-4 flex flex-col flex-grow">
-        <h3 className="font-bold text-lg leading-tight truncate">{hotel.name}</h3>
-        {/* Use muted-foreground for secondary text */}
-        <p className="text-sm text-muted-foreground mt-1">{hotel.address?.cityName}</p>
+        <h3 className="font-bold text-lg leading-tight truncate" title={hotelName}>
+          {hotelName}
+        </h3>
+        
+        <div className="flex items-center mt-1 text-sm text-muted-foreground">
+          <MapPin className="h-4 w-4 mr-1" />
+          <span className="truncate">
+            {cityName}{countryName && `, ${countryName}`}
+          </span>
+        </div>
+        
         <div className="mt-2">
           <StarRating rating={rating} />
         </div>
+        
         <div className="mt-4 pt-4 border-t flex-grow flex items-end justify-between">
-          <div>
-            <p className="text-xl font-bold">{formatCurrency(parseFloat(price))}</p>
-            <p className="text-xs text-muted-foreground">total for stay</p>
+          <div className="flex-1">
+            <p className="text-sm text-muted-foreground mb-2">Starting from</p>
+            <p className="text-lg font-bold text-primary">View Offers</p>
           </div>
-          {/* The button is now a functional link */}
-          <Link href={`/hotels/${hotelId}`}>
-            <Button size="sm">View Deal</Button>
+          
+          <Link href={detailsUrl}>
+            <Button size="sm" className="ml-2">
+              View Details
+            </Button>
           </Link>
         </div>
       </div>

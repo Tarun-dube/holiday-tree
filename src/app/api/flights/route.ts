@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Amadeus from 'amadeus';
+import { amadeus } from '@/lib/amadeus';
 
-// Initialize the Amadeus client with your environment variables
-const amadeus = new Amadeus({
-  clientId: process.env.AMADEUS_API_KEY as string,
-  clientSecret: process.env.AMADEUS_API_SECRET as string,
-});
+// Using shared Amadeus client from lib to ensure consistent env vars
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -36,33 +32,11 @@ export async function GET(request: NextRequest) {
     
     // The Amadeus response is very complex. We need to format it
     // into a simpler structure for our frontend.
-    const formattedFlights = response.data.map((offer: any) => {
-      const firstItinerary = offer.itineraries[0];
-      const firstSegment = firstItinerary.segments[0];
-      const lastSegment = firstItinerary.segments[firstItinerary.segments.length - 1];
-
-      return {
-        id: offer.id,
-        price: {
-          total: offer.price.total,
-          currency: offer.price.currency,
-        },
-        departure: {
-          iataCode: firstSegment.departure.iataCode,
-          time: firstSegment.departure.at,
-        },
-        arrival: {
-          iataCode: lastSegment.arrival.iataCode,
-          time: lastSegment.arrival.at,
-        },
-        duration: firstItinerary.duration,
-        // You can get the airline name from the included dictionaries
-        airline: response.result.dictionaries.carriers[firstSegment.carrierCode],
-        stops: firstItinerary.segments.length - 1,
-      };
+    
+    return NextResponse.json({
+      data: response.data,
+      dictionaries: response.dictionaries
     });
-
-    return NextResponse.json(formattedFlights);
 
   } catch (error: any) {
     // Log the detailed error for debugging on the server

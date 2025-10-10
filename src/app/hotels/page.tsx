@@ -20,10 +20,11 @@ function HotelResults() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Create a summary of the current search for display
     const city = searchParams.get('cityCode');
     const checkIn = searchParams.get('checkInDate');
     const checkOut = searchParams.get('checkOutDate');
+    const adults = searchParams.get('adults');
+    
     const searchSummary = `Hotels in ${city} from ${checkIn ? formatDate(checkIn, 'PPP') : ''} to ${checkOut ? formatDate(checkOut, 'PPP') : ''}`;
 
     useEffect(() => {
@@ -69,7 +70,6 @@ function HotelResults() {
                         </CollapsibleTrigger>
                     </div>
                     <CollapsibleContent>
-                        {/* We are reusing the powerful search form component! */}
                         <CombinedSearchForm />
                     </CollapsibleContent>
                 </Collapsible>
@@ -91,8 +91,17 @@ function HotelResults() {
             {!isLoading && !error && (
                 hotels.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {hotels.map((hotelOffer: any, index: number) => (
-                            <HotelCard key={index} hotel={hotelOffer.hotel} offer={hotelOffer.offers[0]} />
+                        {hotels.map((hotelData: any, index: number) => (
+                            <HotelCard 
+                                key={hotelData.hotel.hotelId || index} 
+                                hotel={hotelData.hotel} 
+                                offer={hotelData.offers[0]} 
+                                searchParams={{
+                                    checkInDate: checkIn,
+                                    checkOutDate: checkOut,
+                                    adults: adults
+                                }}
+                            />
                         ))}
                     </div>
                 ) : (
