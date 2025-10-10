@@ -111,18 +111,34 @@ model Booking {
   hotelId     String?
   hotel       Hotel?   @relation(fields: [hotelId], references: [id])
 
-  // NEW: Store the unique booking reference from the Amadeus API
+  // Amadeus API booking details
   amadeusBookingId String?  @unique
-
+  pnr             String?   // Passenger Name Record
+  ticketNumbers   Json?     // Array of ticket numbers
+  
+  // Payment details
+  stripePaymentIntentId String? @unique
+  paymentStatus         String  @default("PENDING") // PENDING, COMPLETED, FAILED, REFUNDED
+  
   bookingDate DateTime @default(now())
   totalPrice  Float
-  status      String   @default("CONFIRMED") // e.g., CONFIRMED, CANCELLED, PENDING
+  currency    String   @default("INR")
+  status      String   @default("PENDING") // PENDING, CONFIRMED, CANCELLED, COMPLETED
   
+  // Travel details
   passengerDetails Json? 
+  flightDetails    Json? // Store complete flight offer details
+  contactDetails   Json? // Store contact information
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([flightId])
   @@index([hotelId])
+  @@index([amadeusBookingId])
+  @@index([stripePaymentIntentId])
 }
 
 //for reviews

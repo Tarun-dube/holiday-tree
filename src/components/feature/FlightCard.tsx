@@ -1,22 +1,51 @@
-import { formatCurrency, formatDate } from '@/lib/utils';
-import { Button } from '@/components/ui/Button';
-import { ArrowRight, Plane } from 'lucide-react';
-import Link from 'next/link';
+'use client'
+
+import { formatCurrency, formatDate } from '@/lib/utils'
+import { Button } from '@/components/ui/Button'
+import { ArrowRight, Plane } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
 
 export default function FlightCard({ flight }: { flight: any }) {
-  // ✅ Data extraction from the SIMPLIFIED flight object
-  const { departure, arrival, duration, price, stops, airline } = flight;
+  const router = useRouter()
+  const firstItinerary = flight.itineraries?.[0]
 
-  const formattedDuration = duration
-    ? duration.replace('PT', '').replace('H', 'h ').replace('M', 'm')
-    : 'N/A';
+  const [dictionaries, setDictionaries] = useState<any>({})
 
-  if (!departure || !arrival) {
+  // Load dictionaries from sessionStorage once on client
+  useEffect(() => {
+    const stored = sessionStorage.getItem("dictionaries")
+    if (stored) setDictionaries(JSON.parse(stored))
+  }, [])
+
+  if (!firstItinerary) {
     return (
       <div className="border bg-card text-card-foreground rounded-lg p-4 text-muted-foreground">
         <p>⚠️ Incomplete flight data.</p>
       </div>
-    );
+    )
+  }
+
+  const firstSegment = firstItinerary.segments?.[0]
+  const lastSegment = firstItinerary.segments?.[firstItinerary.segments.length - 1]
+
+  const departure = firstSegment?.departure
+  const arrival = lastSegment?.arrival
+  const airlineCode = firstSegment?.carrierCode
+  const duration = firstItinerary.duration
+  const stops = firstItinerary.segments.length - 1
+  const price = flight.price
+  const id = flight.id
+
+  const airline = dictionaries?.carriers?.[airlineCode] || airlineCode
+
+  const formattedDuration = duration
+    ? duration.replace('PT', '').replace('H', 'h ').replace('M', 'm')
+    : 'N/A'
+
+  const handleSelect = () => {
+    sessionStorage.setItem('selectedOffer', JSON.stringify(flight))
+    router.push(`/flights/${id}`)
   }
 
   return (
@@ -27,22 +56,20 @@ export default function FlightCard({ flight }: { flight: any }) {
           <Plane className="text-primary" size={32} />
           <div>
             <div className="font-bold text-lg">
-              {departure.iataCode}{' '}
+              {departure?.iataCode}{' '}
               <ArrowRight className="inline-block mx-2" size={16} />{' '}
-              {arrival.iataCode}
+              {arrival?.iataCode}
             </div>
-            <div className="text-sm text-muted-foreground">
-              {airline}
-            </div>
+            <div className="text-sm text-muted-foreground">{airline}</div>
           </div>
         </div>
 
         {/* Departure & Arrival Times */}
         <div className="text-center flex-1">
-            <div className="font-semibold">
-                {formatDate(departure.time, 'HH:mm')} - {formatDate(arrival.time, 'HH:mm')}
-            </div>
-            <div className="text-sm text-muted-foreground">Timings</div>
+          <div className="font-semibold">
+            {formatDate(departure?.at, 'HH:mm')} - {formatDate(arrival?.at, 'HH:mm')}
+          </div>
+          <div className="text-sm text-muted-foreground">Timings</div>
         </div>
 
         {/* Duration & Stops */}
@@ -58,13 +85,11 @@ export default function FlightCard({ flight }: { flight: any }) {
           <div className="text-xl font-bold">
             {price?.total ? formatCurrency(parseFloat(price.total)) : 'N/A'}
           </div>
-          <Link href="/book">
-            <Button size="sm" className="mt-2">
-              Select Flight
-            </Button>
-          </Link>
+          <Button size="sm" className="mt-2" onClick={handleSelect}>
+            Select Flight
+          </Button>
         </div>
       </div>
     </div>
-  );
+  )
 }
